@@ -1,0 +1,150 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage{amsmath, amssymb, amscd, amsthm, amsfonts}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\usepackage [english]{babel}
+\usepackage [autostyle, english = american]{csquotes}
+\MakeOuterQuote{"}
+
+\oddsidemargin 0pt
+\evensidemargin 0pt
+\marginparwidth 40pt
+\marginparsep 10pt
+\topmargin -20pt
+\headsep 10pt
+\textheight 8.7in
+\textwidth 6.65in
+\linespread{1.5}
+
+\title{Car Price Prediction from Auction Prices}
+\author{Brett Huffman - CSCI 5300 - Main Project Phase I}
+\date{}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{conjecture}[theorem]{Conjecture}
+
+\newcommand{\rr}{\mathbb{R}}
+
+\newcommand{\al}{\alpha}
+\DeclareMathOperator{\conv}{conv}
+\DeclareMathOperator{\aff}{aff}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+
+
+The objective of this project is to harness past auction data to build a car price prediction engine.  Auction data was normalized, split into training and validation sets, and used to train and validate a Logical Regression Model Neural Network.  The sole output of the system will be the estimated vehicle price.
+
+Buyers, dealerships, lenders, and insurance companies would all be interested customers of such a service.
+
+
+
+
+\end{abstract}
+
+\section{Problem To Be Solved}\label{problem-to-be-solved}
+
+For a used car shopper, understanding the true value of a car has always been one of the greatest unknowns in the buying experience.  The used car's price is composed of the auction price, the dealer's costs, and the dealer markup.
+
+Anything a buyer pays for a car above the auction price and dealer costs is pure profit for the dealership and expense for the buyer.
+
+Additionally, if a dealer gets a vehicle from trade-in they will rarely pay above auction price. Thus auction price is also a good estimate of a dealer's base cost from trade-ins.
+
+Thus, the auction price is an important aspect of car buying and gives purpose in performing this project.
+
+A second purpose for this project could be to check the accuracy of the Manheim Market Report, the commercial product that tracks vehicle resale prices.  Most professionals in the business use MMR for determining true wholesale vehicle price (\cite{proj:manheim}).
+
+\section{Data Set Source}
+
+The data set source for this project is a public Kaggle.com repository, Used Car Auction Prices \cite{proj:auction}.  The data was scraped from auction results in 2014 and 2015.
+
+One deficiency of the data is that it is stuck in time and has not been kept up-to-date.  However, should the project prove useful, the system could be re-trained with current data and be indispensable for users.
+
+Another problem is that the data does not include all vehicles and models.  It is limited to only models that were auctioned during that 2014-2015 period.  However, because the data source is so large -- nearly 559K rows -- a good sampling of most modern vehicles is represented.
+
+Finally, there are a number of missing fields in the data.  The most blaring omissions are make, model and odometer readings.  These problems were handled in various ways in the data preparation:
+
+\begin{itemize}
+\item Missing Make and Model rows were entirely eliminated from the data set as they would yield almost meaningless results and only offer unwanted "noise" to the results.
+
+\item Missing Odometer data was replaced with -1 values
+\end{itemize}
+
+\section{Data Distribution}
+
+Extensive modifications needed to be accomplished on the data set due to bad data distribution.  The output labels were heavily imbalanced due to several high-priced sales (including a \$240,000 super car sale).  This caused the output distribution to be heavily skewed to the lower end of sales prices.  Almost 80\% of the data was within the first 10\% of the data.
+
+To fix this problem, any rows with a selling price greater than \$40k were removed.  This yielded the output label distribution shown in Figure {\ref{fig:SalesDist}}.
+
+\begin{figure}
+\centerline{\includegraphics[scale=.5]{SellingPriceDistribution.png}}
+\caption{Final Output Variable (Selling Price) Distribution}
+\label{fig:SalesDist}
+\end{figure}
+
+Another interesting modification that had to be made was to the rows with super-high odometer readings.  There were several high values with the highest being 297,000 miles.  As with the sales price, these odometer values were causing data to be skewed and anything above 200,000 miles were removed.
+
+This change yielded the distribution shown in Figure {\ref{fig:ODdist}}.
+
+\begin{figure}
+\centerline{\includegraphics[scale=.5]{OD_Distribution.png}}
+\caption{Final Odometer Distribution}
+\label{fig:ODdist}
+\end{figure}
+
+A keen eye will see that there is a large group of odometer readings right next to the 0 position.  These rows had null odometer values and were purposefully set to -1 during data cleaning.  For now, these rows are going to be left in the data.  Should later phases of this project yield poor results due to the -1 values, they will be removed.  However, they make up such a large portion of the data, they will be left in for now.
+
+All other data elements seemed to be well distributed.  For instance, car auctions by state were not terribly imbalanced (Figure {\ref{fig:statedist}}).
+
+\begin{figure}
+\centerline{\includegraphics[scale=.5]{StateDistribution.png}}
+\caption{Distribution by Auction State}
+\label{fig:statedist}
+\end{figure}
+
+Additional items such as brand are well distributed as can be seen in this Distribution by Brand (Figure {\ref{fig:branddist}}).
+
+\begin{figure}
+\centerline{\includegraphics[scale=.5]{DistributionByBrand.png}}
+\caption{Distribution by Brand}
+\label{fig:branddist}
+\end{figure}
+
+An interesting add-on to this project might be to look up each of the VIN (Vehicle ID Numbers) and retrieve even more relevant information about each car.  Each row of auction data contains the vehicles VIN.  However, that step will only be performed should more specific information be needed.
+
+\section{Data Conversion and Normalization}\label{data-normalization}
+
+At this point, the data looked as shown in Figure \ref{fig:datatable1}. Many columns including Make, Model, Body, etc were being represented as strings.  They needed to be number values for proper inclusion into the neural network.
+
+\begin{figure}
+\centerline{\includegraphics[scale=.5]{DataTable1.png}}
+\caption{Data sample before conversion of strings to numbers}
+\label{fig:datatable1}
+\end{figure}
+
+The Pandas library was used to convert each column into a number representation of each string.  A custom function was built for each data element and an master array was kept for each data field converted.  This will allow users to return values back to their original string representation and to duplicate the findings with other data.
+
+Once the data was completely comprised of numeric data, Data Normalization was accomplished by using the mean average followed by the standard deviation.  This was completed as described in the normalization training video, "[AI] How to normalize and un-normalize a tabular data for neural networks?" \cite{proj:normalize}.
+
+The normalized data with the changed fields highlighted can be seen in figure \ref{fig:datanormal}.
+
+\begin{figure}
+\centerline{\includegraphics[scale=.5]{NormalizedData.png}}
+\caption{Data sample after conversion of string fields to indexes and normalization with normalized fields highlighted }
+\label{fig:datanormal}
+\end{figure}
+
+
+
+
+
+
+\bibliographystyle{alpha}
+\bibliography{references} % see references.bib for bibliography management
+
+\end{document}
